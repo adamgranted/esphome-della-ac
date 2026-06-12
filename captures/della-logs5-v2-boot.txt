@@ -1,0 +1,137 @@
+INFO ESPHome 2026.5.3
+INFO Loaded validated config cache for della-slwf.yaml, skipping validation.
+INFO Starting log output from 192.0.2.10 using esphome API
+WARNING No buffer space available when adding 172.28.0.1 to multicast group, try increasing `net.ipv4.igmp_max_memberships` to `1024` in sysctl.conf
+WARNING No buffer space available when adding 172.22.0.1 to multicast group, try increasing `net.ipv4.igmp_max_memberships` to `1024` in sysctl.conf
+WARNING No buffer space available when adding 172.17.0.1 to multicast group, try increasing `net.ipv4.igmp_max_memberships` to `1024` in sysctl.conf
+INFO Successfully resolved della-slwf @ 192.0.2.10 in 0.000s
+INFO Successfully connected to della-slwf @ 192.0.2.10 in 1.034s
+INFO Successful handshake with della-slwf @ 192.0.2.10 in 3.060s
+[12:16:53.291][I][app:151]: ESPHome version 2026.5.3 compiled on 2026-06-12 12:15:49 +0000
+[12:16:53.291][C][logger:219]: Logger:
+[12:16:53.291][C][logger:219]:   Max Level: DEBUG
+[12:16:53.291][C][logger:219]:   Initial Level: DEBUG
+[12:16:53.291][C][logger:226]:   Log Baud Rate: 0
+[12:16:53.291][C][logger:226]:   Hardware UART: NONE
+[12:16:53.291][C][uart.arduino_esp8266:140]: UART Bus:
+[12:16:53.291][C][uart.arduino_esp8266:152]:   TX Pin: GPIO12
+[12:16:53.291][C][uart.arduino_esp8266:152]:   RX Pin: GPIO14
+[12:16:53.291][C][uart.arduino_esp8266:144]:   RX Buffer Size: 256
+[12:16:53.291][C][uart.arduino_esp8266:146]:   Baud Rate: 9600 baud
+[12:16:53.291][C][uart.arduino_esp8266:146]:   Data Bits: 8
+[12:16:53.291][C][uart.arduino_esp8266:146]:   Parity: EVEN
+[12:16:53.291][C][uart.arduino_esp8266:146]:   Stop bits: 1
+[12:16:53.291][C][uart.arduino_esp8266:155]:   Using software serial
+[12:16:53.291][C][uart.arduino_esp8266:155]:   Wake on data RX: ENABLED
+[12:16:53.332][C][template.sensor:017]: Template Sensor 'MCU heartbeat byte 8'
+[12:16:53.332][C][template.sensor:017]:   State Class: ''
+[12:16:53.332][C][template.sensor:017]:   Unit of Measurement: ''
+[12:16:53.332][C][template.sensor:017]:   Accuracy Decimals: 0
+[12:16:53.332][C][template.sensor:223]:   Icon: 'mdi:hexadecimal'
+[12:16:53.332][C][template.sensor:447]:   Update Interval: never
+[12:16:53.332][C][template.sensor:017]: Template Sensor 'MCU heartbeat byte 9'
+[12:16:53.332][C][template.sensor:017]:   State Class: ''
+[12:16:53.332][C][template.sensor:017]:   Unit of Measurement: ''
+[12:16:53.332][C][template.sensor:017]:   Accuracy Decimals: 0
+[12:16:53.332][C][template.sensor:223]:   Icon: 'mdi:hexadecimal'
+[12:16:53.332][C][template.sensor:447]:   Update Interval: never
+[12:16:53.332][C][template.sensor:017]: Template Sensor 'MCU heartbeat interval'
+[12:16:53.332][C][template.sensor:017]:   State Class: ''
+[12:16:53.332][C][template.sensor:017]:   Unit of Measurement: 's'
+[12:16:53.332][C][template.sensor:017]:   Accuracy Decimals: 2
+[12:16:53.332][C][template.sensor:447]:   Update Interval: never
+[12:16:53.332][C][template.sensor:017]: Template Sensor 'MCU RX frame count'
+[12:16:53.332][C][template.sensor:017]:   State Class: 'total_increasing'
+[12:16:53.332][C][template.sensor:017]:   Unit of Measurement: ''
+[12:16:53.332][C][template.sensor:017]:   Accuracy Decimals: 0
+[12:16:53.332][C][template.sensor:223]:   Icon: 'mdi:counter'
+[12:16:53.332][C][template.sensor:447]:   Update Interval: never
+[12:16:53.338][C][template.sensor:017]: Template Sensor 'MCU non-heartbeat frame count'
+[12:16:53.338][C][template.sensor:017]:   State Class: 'total_increasing'
+[12:16:53.338][C][template.sensor:017]:   Unit of Measurement: ''
+[12:16:53.338][C][template.sensor:017]:   Accuracy Decimals: 0
+[12:16:53.385][C][template.sensor:223]:   Icon: 'mdi:counter'
+[12:16:53.385][C][template.sensor:447]:   Update Interval: never
+[12:16:53.385][C][template.text_sensor:016]: Template Sensor 'MCU last RX frame'
+[12:16:53.385][C][template.text_sensor:223]:   Icon: 'mdi:matrix'
+[12:16:53.385][C][template.binary_sensor:016]: Template Binary Sensor 'MCU heartbeat alive'
+[12:16:53.385][C][template.binary_sensor:232]:   Device Class: 'connectivity'
+[12:16:53.443][C][captive_portal:133]: Captive Portal:
+[12:16:53.443][C][wifi:1526]: WiFi:
+[12:16:53.443][C][wifi:1526]:   Local MAC: AA:BB:CC:DD:EE:FF
+[12:16:53.443][C][wifi:1526]:   Connected: YES
+[12:16:53.443][C][wifi:1237]:   IP Address: 192.0.2.10
+[12:16:53.446][C][wifi:1248]:   SSID: 'REDACTED_SSID'
+[12:16:53.446][C][wifi:1248]:   BSSID: 00:00:00:00:00:00
+[12:16:53.446][C][wifi:1248]:   Hostname: 'della-slwf'
+[12:16:53.446][C][wifi:1248]:   Signal strength: -47 dB ▂▄▆█
+[12:16:53.446][C][wifi:1248]:   Channel: 1
+[12:16:53.446][C][wifi:1248]:   Subnet: 255.255.255.0
+[12:16:53.446][C][wifi:1248]:   Gateway: 192.0.2.1
+[12:16:53.446][C][wifi:1248]:   DNS1: 192.0.2.1
+[12:16:53.446][C][wifi:1248]:   DNS2: 0.0.0.0
+[12:16:53.450][C][esphome.ota:097]: Over-The-Air updates:
+[12:16:53.450][C][esphome.ota:097]:   Address: della-slwf.local:8266
+[12:16:53.450][C][esphome.ota:097]:   Version: 2
+[12:16:53.450][C][esphome.ota:104]:   Password configured
+[12:16:53.495][C][safe_mode:058]: Safe Mode:
+[12:16:53.495][C][safe_mode:058]:   Successful after: 60s
+[12:16:53.495][C][safe_mode:058]:   Invoke after: 10 attempts
+[12:16:53.495][C][safe_mode:058]:   Duration: 300s
+[12:16:53.495][C][web_server.ota:256]: Web Server OTA
+[12:16:53.495][C][api:238]: Server:
+[12:16:53.495][C][api:238]:   Address: della-slwf.local:6053
+[12:16:53.495][C][api:238]:   Listen backlog: 1
+[12:16:53.495][C][api:238]:   Max connections: 4
+[12:16:53.501][C][api:245]:   Noise encryption: YES
+[12:16:53.504][C][mdns:230]: mDNS:
+[12:16:53.504][C][mdns:230]:   Hostname: della-slwf
+[12:16:54.268][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:16:57.724][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:00.249][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:01.886][S][sensor]: 'MCU RX frame count' >> 6 
+[12:17:01.887][S][sensor]: 'MCU non-heartbeat frame count' >> 0 
+[12:17:03.349][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:05.271][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:05.272][S][sensor]: 'MCU heartbeat interval' >> 1.97 s
+[12:17:08.240][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:08.240][S][sensor]: 'MCU heartbeat interval' >> 2.97 s
+[12:17:11.380][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:14.417][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:16.877][S][sensor]: 'MCU RX frame count' >> 11 
+[12:17:16.877][S][sensor]: 'MCU non-heartbeat frame count' >> 0 
+[12:17:17.423][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:20.519][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:22.988][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:26.023][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:29.047][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:31.886][S][sensor]: 'MCU RX frame count' >> 16 
+[12:17:31.886][S][sensor]: 'MCU non-heartbeat frame count' >> 0 
+[12:17:31.889][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:35.163][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:36.854][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:36.964][S][sensor]: 'MCU heartbeat interval' >> 1.98 s
+[12:17:39.951][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:39.951][S][sensor]: 'MCU heartbeat interval' >> 2.97 s
+[12:17:42.671][I][safe_mode:142]: Boot seems successful; resetting boot loop counter
+[12:17:43.207][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:45.769][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:46.883][S][sensor]: 'MCU RX frame count' >> 22 
+[12:17:46.883][S][sensor]: 'MCU non-heartbeat frame count' >> 0 
+[12:17:49.246][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:51.796][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:54.874][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:17:57.896][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:18:00.628][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:18:01.891][S][sensor]: 'MCU RX frame count' >> 27 
+[12:18:01.891][S][sensor]: 'MCU non-heartbeat frame count' >> 0 
+[12:18:03.939][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:18:07.046][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:18:08.558][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:18:08.665][S][sensor]: 'MCU heartbeat interval' >> 1.98 s
+[12:18:11.595][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:18:11.641][S][sensor]: 'MCU heartbeat interval' >> 2.97 s
+[12:18:14.619][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE
+[12:18:16.877][S][sensor]: 'MCU RX frame count' >> 32 
+[12:18:16.878][S][sensor]: 'MCU non-heartbeat frame count' >> 0 
+[12:18:17.661][D][uart_debug:113]: <<< 9E E6 06 00 00 00 00 00 1E 3E FE

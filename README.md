@@ -1,193 +1,107 @@
-# Della Mini Split Control with ESPHome
+# Della 048-MS mini split ⇄ ESPHome (SMLIGHT SLWF-01)
 
-**This project is a work in progress and is currently broken.**
+Full local Home Assistant control of a **Della 048-MS** mini split by replacing the stock
+Tuya WBR3 USB dongle with a **SMLIGHT SLWF-01** (ESP8266) running ESPHome. Exposes a
+complete HA thermostat (modes, fan, swing, presets, action) plus coil/compressor/outdoor
+temperature and inverter-power telemetry — all decoded locally, no cloud.
 
-This _will_ enable control of a Della mini split air conditioner using ESPHome and a SLWF-01 dongle. The implementation is based on reverse-engineered protocol from the [Klima04.txt file](https://github.com/adaasch/AC-hack/issues/3#issuecomment-2346573789).
+> **TL;DR protocol finding:** the Della 048-MS is an **AUX OEM** unit. Its dongle port
+> speaks the **AUX HVAC serial protocol at 4800 baud 8E1** on an open-drain line — *not*
+> the TCL 9600-baud protocol its TCL-style USB port suggests. If you sample the line at
+> 9600 baud you get a convincing-but-bogus `9E E6 06 00 00 00 00 00 1E 3E FE` "frame"
+> (aliasing). Frame docs: [GrKoR/AUX_HVAC_Protocol](https://github.com/GrKoR/AUX_HVAC_Protocol).
 
-## Hardware Requirements
+## Hardware
 
-- SLWF-01 dongle (made by SMLight, commonly used for Midea AC units)
-- Della mini split air conditioner
-- Home Assistant setup
+- **AC:** Della 048-MS (brand: Align Inc; hardware: AUX). Stock dongle: Tuya WBR3
+  (RTL8720CF) bridging Tuya cloud ⇄ AUX serial.
+- **Dongle:** SMLIGHT SLWF-01 r2.x — ESP-12F, FET level shifters with 10 kΩ pull-ups,
+  AC-side UART on **GPIO12 (TX) / GPIO14 (RX)**, powered from the AC's USB-A port (5 V).
+- The bus is open-drain, idles HIGH. Falling edges are crisp; **rising edges lag 0–155 µs**
+  (the AC MCU bit-bangs TX on a ~51.5 µs tick and releases late). This matters: a naive
+  UART receiver at 4800 can mis-sample the first 1-bit after a long 0-run. This firmware
+  therefore receives via `remote_receiver` pulse capture and reconstructs bytes in
+  software (lows are timer-exact; highs get +77 µs recentring) — decode error rate in
+  practice ≈ 0.1%, every frame CRC-checked.
 
-## ESPHome Compatibility
+## Protocol (verified live against the unit)
 
-This project is compatible with ESPHome 2025.2.2 and later. The configuration uses the new format where the platform is defined as a separate component (e.g., `esp8266:` instead of inside the `esphome:` block).
+- **Framing:** `BB 00 <type> <dir> .. .. <body_len> 00 [body] [CRC16]`.
+  CRC16 = RFC1071-style ones-complement word sum over header+body, big-endian on the
+  wire, odd length padded with a trailing zero byte.
+- **Ping** (unit → module, ~2.5 s when idle): `BB 00 01 00 00 00 00 00 43 FF`.
+  Module presence answer: `BB 00 01 80 01 00 08 00 1C 27 00 00 00 00 00 00 1E 58`.
+  The unit stops pinging entirely while actively polled — normal.
+- **Status requests** (module → unit):
+  small `BB 00 06 80 00 00 02 00 11 01 2B 7E`, big `BB 00 06 80 00 00 02 00 21 01 1B 7E`.
+  The unit also auto-reports big status every ~10 min and ~10 s after dongle boot.
+- **Small status** (settings; 15-byte body, packet byte = body index + 8):
+  `[2]` v-louver (bits 0-2: 0=swing, 7=stop) | setpoint −8 << 3 ·
+  `[4]` minutes-since-IR (bits 0-5) | half-degree flag (bit 7) ·
+  `[5]` fan (0xE0: 0x20 HIGH, 0x40 MED, 0x60 LOW, 0xA0 AUTO) ·
+  `[6]` turbo 0x40 | mute 0x80 ·
+  `[7]` mode (0xE0: 0x00 auto, 0x20 cool, 0x40 dry, 0x80 heat, 0xC0 fan) | °F display 0x02 | sleep 0x04 ·
+  `[10]` power 0x20 | clean 0x04 | health 0x02 ·
+  `[12]` display 0x10 | mildew 0x08 · `[13]` inverter power limit · `[14]` setpoint tenths
+- **Big status** (telemetry; 24-byte body, cmd `0x20` unsolicited / `0x21` polled):
+  packet byte 15 indoor T (−0x20, tenths at byte 31), 16-18 evaporator coil, 20 outdoor,
+  22 compressor, 24 inverter power %. CONF byte 10: 0xE4 unsolicited / 0xE0 poll reply.
+- **Control** (SET_PARAMS): `BB 00 06 80 00 00 0F 00` + 15-byte body + CRC. Body layout =
+  small status body with `[0]=0x01 [1]=0x01`. **Safety pattern: copy the unit's latest
+  small-status body verbatim and modify only the fields you mean to change.** The unit
+  ACKs with a 4-byte-body type-0x07 frame echoing your CRC.
 
-### Key Configuration Points
+### Quirks (all verified live)
 
-- We use the platform-specific `esp8266` component instead of specifying it in the `esphome` block
-- We use the `ota` component with the `platform: esphome` format introduced in ESPHome 2024.6.0
-- We configure the API encryption key in base64 format as required by ESPHome 2025.2.2
+- **AUTO (heat_cool) mode force-resets the setpoint to 25.0 °C** — and it persists after
+  switching back to cool. Re-send the setpoint after any auto-mode excursion.
+- **Setpoint tenths:** values ending .0/.5 store exactly; anything else stores 0.1 °C
+  LOW (sent 22.8 → stored 22.7) — **on every accepted SET, including ones that don't
+  change temperature**. Since SET bodies are copies of the settings frame, an innocent
+  fan/swing/preset command erodes a non-.0/.5 setpoint by 0.1 °C per command (caught
+  in the wild via an HA swing command). The component compensates: it always re-encodes
+  the intended target with tenths+1 for non-.0/.5 values, so stored == intended and
+  non-temperature commands are setpoint-neutral. The half-degree flag (body[4] bit 7)
+  is set only when the *sent* tenths are exactly 5.
+- Polling at 1 Hz is fully sustainable (measured: 59/59 replies over 120 s, ~19% bus
+  duty). Frames can arrive ~11 ms apart — keep receiver idle threshold under that.
 
-## Successfully Tested
+## Files
 
-The code successfully compiles with ESPHome 2025.2.2. The UART protocol implementation matches the Della mini split's communication format based on the Klima04.txt reference implementation.
-
-## Installation
-
-1. **Install ESPHome**: If you haven't already, install ESPHome:
-   ```bash
-   pip install esphome
-   ```
-
-2. **Clone this repository**:
-   ```bash
-   git clone https://github.com/adamgranted/SLWF-01_Della
-   cd SLWF-01_Della
-   ```
-
-3. **Edit secrets.yaml**: Update the secrets.yaml file with your WiFi credentials and other information:
-   ```yaml
-   wifi_ssid: "YourWiFiName"
-   wifi_password: "YourWiFiPassword"
-   fallback_password: "FallbackPassword"
-   api_encryption_key: "<base64-encoded-key>"  # Generate with: openssl rand -base64 32
-   ota_password: "YourOTAPassword"
-   ```
-
-4. **Compile and flash**: Connect your SLWF-01 dongle to your computer and run:
-   ```bash
-   esphome run della_ac.yaml
-   ```
-
-5. **Connect to Home Assistant**: The device should automatically be discovered by Home Assistant. If not, you can manually add it through the "ESPHome" integration.
-
-## Connecting to an Existing ESPHome Instance
-
-If you already have an ESPHome setup and want to integrate this Della AC component:
-
-1. **Clone the Repository into Your ESPHome Directory**:
-   ```bash
-   # Navigate to your ESPHome config directory (typically ~/.esphome or your Home Assistant config/esphome)
-   cd ~/.esphome
-   
-   # Clone the repository
-   git clone https://github.com/adamgranted/SLWF-01_Della
-   
-   # Create a symbolic link to the components directory
-   ln -s SLWF-01_Della/components/della_ac components/della_ac
-   ```
-
-2. **Staying Updated**:
-   ```bash
-   # To update to the latest version
-   cd ~/.esphome/SLWF-01_Della
-   git pull
-   ```
-
-3. **Configure Your Existing ESPHome YAML**:
-   Add the following to your existing ESPHome configuration file:
-   ```yaml
-   # UART Configuration for communicating with the AC
-   uart:
-     id: ac_uart
-     tx_pin: GPIO1  # Verify pins for your SLWF-01 dongle (GPIO 13 in original AC-Hack.txt)
-     rx_pin: GPIO3  # Verify pins for your SLWF-01 dongle (GPIO 15 in original AC-Hack.txt)
-     baud_rate: 9600
-     parity: EVEN
-     data_bits: 8
-     stop_bits: 1
-
-   # External components directory
-   external_components:
-     - source: components
-       components: [della_ac]
-
-   # Use the della_ac component
-   climate:
-     - platform: della_ac
-       name: "Della Air Conditioner"
-       uart_id: ac_uart
-   ```
-
-4. **Hardware Connection**:
-   - Connect the SLWF-01 dongle to your Della AC unit using the appropriate cables
-   - The dongle uses TX/RX for communication with the AC unit
-   - The original AC-Hack.txt used GPIO 13 (TX) and GPIO 15 (RX) with 9600 baud rate, 8 data bits, even parity, and 1 stop bit
-   - The default configuration for SLWF-01 uses GPIO1 and GPIO3, which may need adjustment based on your specific dongle
-
-5. **Verify Communication**:
-   - After flashing your ESPHome configuration, check the logs to ensure proper communication
-   - Look for successful initialization of the UART and the climate component
-   - You should see log messages showing the AC status being read successfully
-
-6. **Troubleshooting Connection Issues**:
-   - If you experience connection issues, try swapping the TX/RX pins
-   - Verify the baud rate and parity settings match your AC unit's requirements
-   - Check the physical connection between the dongle and AC unit
-   - Compare the protocol implementation in `della_ac.cpp` with your specific AC model if commands aren't working
-
-## ESPHome Dashboard Integration
-
-If you're using the ESPHome Dashboard (either standalone or through Home Assistant), you can easily manage your Della AC integration:
-
-1. **Adding to ESPHome Dashboard**:
-   - Option 1: Use the installation method described above to add the component to your ESPHome directory
-   - Option 2: If using Home Assistant, you can create an external_components directory in your config/esphome folder:
-     ```bash
-     cd config/esphome
-     git clone https://github.com/adamgranted/SLWF-01_Della
-     ```
-   - Copy the `della_ac.yaml` file from the repository to your ESPHome dashboard configuration directory
-   - In the ESPHome Dashboard, click on the three dots next to the newly added device
-   - Select "Edit" to customize the configuration for your specific setup
-
-2. **Using Git for Updates**:
-   - To update the component when improvements are made:
-     ```bash
-     cd ~/path/to/your/SLWF-01_Della
-     git pull
-     ```
-   - Rebuild and reflash your device after updating
-
-3. **Using Secrets in Dashboard**:
-   - The ESPHome Dashboard automatically uses the `secrets.yaml` file in your ESPHome directory
-   - Make sure to update it with your credentials as described in the Installation section
-
-4. **OTA Updates via Dashboard**:
-   - Once initially flashed, you can update your device over-the-air through the dashboard
-   - Click "Install" and select "Wirelessly" to push new configurations without connecting via USB
-
-5. **Monitoring Logs**:
-   - In the ESPHome Dashboard, click on the three dots next to your device
-   - Select "Logs" to view real-time logs for debugging
-
-6. **Integration with Home Assistant**:
-   - Devices added through the ESPHome Dashboard will automatically appear in Home Assistant
-   - Look for your newly added Della AC under the ESPHome integration in Home Assistant
+- `della-slwf.yaml` — main firmware: pulse-decoder RX, length-aware frame splitter,
+  CRC validation, polling scheduler, ping-ACK, climate + telemetry entities.
+- `components/della_ac/` — minimal local climate component (the HA thermostat shell;
+  control = copy-body-modify-field, refuses on stale readback).
+- `della-la.yaml` — bare "logic analyzer" build (remote_receiver raw dump only); flash
+  this for pristine pulse-timing research.
+- `analyze_bursts.py` / `pulse2bytes.py` — offline tools: parse `remote.raw` log dumps
+  (incl. chunked lines), classify bursts, decode pulses → 8E1 bytes → CRC check.
+- `della_ctl.py` — ESPHome native-API remote control (list/press/number/watch).
+  `test_ladder.py` — incremental control-verification ladder (24 checks).
+  Both honor `DELLA_HOST` (default `della-slwf.local`) and read `secrets.yaml` from CWD.
+- `ir_sweep.py` — guided interactive IR-remote capture: per-button prompts, live
+  before/after diff of the settings frame with decoded fields, loud flagging of
+  never-seen bits, free-form section for leftover buttons, JSON+MD session reports.
+- `captures/` — sanitized log captures documenting the discovery path (the 9600-baud
+  aliasing era → first raw pulse capture). Network identifiers masked.
 
 ## Usage
 
-Once connected to Home Assistant, you'll be able to control:
+```bash
+pip install esphome            # 2026.5.3 known-good
+cp secrets.yaml.example secrets.yaml   # fill in
+esphome run della-slwf.yaml    # flash (first time via USB, then OTA)
+python3 della_ctl.py list      # poke entities over the native API
+```
 
-- Power on/off
-- Temperature settings (including half-degree precision)
-- Operation modes (Cooling, Heating, Auto, Fan-only, Dry)
-- Fan speeds
-- Special modes (ECO and Turbo)
-
-## Troubleshooting
-
-- **Configuration Format**: If you see errors about the `platform` key in the ESPHome block, make sure you're using ESPHome 2025.2.2 or later, or update the configuration format as shown in the della_ac.yaml file.
-- **UART Communication**: If you experience communication issues, verify the UART pins in the della_ac.yaml file match your SLWF-01 dongle's configuration.
-- **Protocol Mismatch**: If the AC doesn't respond to commands, there might be slight differences in the protocol. Check the logs for any error messages.
-- **ESP8266 Pins**: The SLWF-01 may use different GPIO pins than specified in the default configuration. Check the dongle's documentation or try alternative pin configurations if communication fails.
-- **API Encryption Key**: If you see "Invalid key format" errors, make sure to generate a proper base64 key using `openssl rand -base64 32`.
-
-## SLWF-01 Configuration
-
-The default configuration assumes the following for the SLWF-01 dongle:
-- TX pin: GPIO1
-- RX pin: GPIO3
-- 9600 baud rate with even parity (8E1)
-
-If your dongle uses different pins, update the `uart` section in the configuration file.
+HA discovers the device via the ESPHome integration; the climate entity exposes
+off / cool / heat / dry / fan-only / heat_cool, fan auto/low/med/high/quiet,
+vertical swing, presets boost (turbo) & sleep, current temperature and action.
 
 ## Credits
 
-This implementation is based on the protocol analysis found in Klima04.txt, which was derived from https://github.com/adaasch/AC-hack.
-
-## License
-
-MIT 
+- [GrKoR/AUX_HVAC_Protocol](https://github.com/GrKoR/AUX_HVAC_Protocol) and
+  [GrKoR/esphome_aux_ac_component](https://github.com/GrKoR/esphome_aux_ac_component) —
+  the AUX protocol documentation and reference implementation this work was verified against.
+- [dudanov/iot-uni-dongle](https://github.com/dudanov/iot-uni-dongle) — dongle hardware
+  reference (level-shifter topology).
