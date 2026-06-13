@@ -84,6 +84,32 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
 
     bool changed = mode != this->mode || fan != this->fan_mode || swing != this->swing_mode ||
                    preset != this->preset || fabsf(target - this->target_temperature) > 0.05f;
+
+    // Clean, human-readable state logging at INFO: one summary line on first
+    // sync, then only what actually changed. No per-poll spam.
+    if (this->first_publish_) {
+      ESP_LOGI(TAG, "State: %s, target %.1f C, fan %s",
+               LOG_STR_ARG(climate::climate_mode_to_string(mode)), target,
+               LOG_STR_ARG(climate::climate_fan_mode_to_string(fan)));
+    } else {
+      if (mode != this->mode)
+        ESP_LOGI(TAG, "Mode: %s -> %s", LOG_STR_ARG(climate::climate_mode_to_string(this->mode)),
+                 LOG_STR_ARG(climate::climate_mode_to_string(mode)));
+      if (fabsf(target - this->target_temperature) > 0.05f)
+        ESP_LOGI(TAG, "Target: %.1f -> %.1f C", this->target_temperature, target);
+      if (fan != this->fan_mode)
+        ESP_LOGI(TAG, "Fan: %s -> %s",
+                 LOG_STR_ARG(climate::climate_fan_mode_to_string(this->fan_mode.value())),
+                 LOG_STR_ARG(climate::climate_fan_mode_to_string(fan)));
+      if (swing != this->swing_mode)
+        ESP_LOGI(TAG, "Swing: %s -> %s", LOG_STR_ARG(climate::climate_swing_mode_to_string(this->swing_mode)),
+                 LOG_STR_ARG(climate::climate_swing_mode_to_string(swing)));
+      if (preset != this->preset)
+        ESP_LOGI(TAG, "Preset: %s -> %s",
+                 LOG_STR_ARG(climate::climate_preset_to_string(this->preset.value())),
+                 LOG_STR_ARG(climate::climate_preset_to_string(preset)));
+    }
+
     this->mode = mode;
     this->target_temperature = target;
     this->fan_mode = fan;
