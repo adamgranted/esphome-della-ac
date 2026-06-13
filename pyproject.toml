@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+# Only the tests/ directory holds unit tests. The repo-root `test_ladder.py`
+# is a device-driving script (matches pytest's test_*.py glob but is not a
+# unit test), so restrict collection here.
+testpaths = ["tests"]

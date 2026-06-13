@@ -55,5 +55,6 @@ async def main():
         await asyncio.sleep(float(sys.argv[2]))
     await cli.disconnect()
 
-asyncio.run(main())
-# appended: 'service' subcommand handled inline above via execute_service
+
+if __name__ == '__main__':
+    asyncio.run(main())

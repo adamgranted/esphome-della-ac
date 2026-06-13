@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# ESPHome release this firmware is pinned to. Keep in step with `min_version`
+# in the YAML and the pin in requirements-dev.txt.
+env:
+  ESPHOME_VERSION: "2026.5.3"
+
+jobs:
+  esphome:
+    name: ESPHome validate + compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache PlatformIO toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-esphome-${{ env.ESPHOME_VERSION }}
+
+      - name: Install ESPHome (pinned)
+        run: pip install "esphome==${ESPHOME_VERSION}"
+
+      - name: Provide CI secrets
+        run: |
+          cat > secrets.yaml <<'YAML'
+          wifi_ssid: "ci"
+          wifi_password: "ci-password-placeholder"
+          api_encryption_key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+          ota_password: "ci-ota-placeholder"
+          fallback_ap_password: "ci-fallback-placeholder"
+          YAML
+
+      - name: Validate config (schema lint, version floor)
+        run: |
+          esphome config della-slwf.yaml
+          esphome config della-la.yaml
+
+      - name: Compile firmware (builds the custom C++ component)
+        run: esphome compile della-slwf.yaml
+
+  python:
+    name: Python protocol tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test deps
+        run: pip install "pytest>=8,<9"
+
+      - name: Byte-compile all scripts
+        run: python -m compileall -q *.py components/della_ac/*.py
+
+      - name: Run tests
+        run: pytest -q

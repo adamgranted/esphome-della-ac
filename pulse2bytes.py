@@ -61,10 +61,15 @@ def show(name, t):
         calc = crc16_rfc1071(body)
         print(f"CRC16 in frame: {crc:04X}  calculated: {calc:04X}  {'VALID' if crc == calc else 'MISMATCH'}")
 
-if len(sys.argv) < 2:
-    sys.exit(__doc__)
-bursts = parse(sys.argv[1])
-hb = next(t for ts, t in bursts if lows_sig(t) == HB and len(t) == 33)
-show("HEARTBEAT", hb)
-for idx, (ts, t) in enumerate([(ts, t) for ts, t in bursts if not (lows_sig(t) == HB and len(t) == 33)]):
-    show(f"STATUS {idx} @ {ts}", t)
+def main(path):
+    bursts = parse(path)
+    hb = next(t for ts, t in bursts if lows_sig(t) == HB and len(t) == 33)
+    show("HEARTBEAT", hb)
+    for idx, (ts, t) in enumerate([(ts, t) for ts, t in bursts if not (lows_sig(t) == HB and len(t) == 33)]):
+        show(f"STATUS {idx} @ {ts}", t)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    main(sys.argv[1])

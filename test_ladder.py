@@ -127,4 +127,6 @@ def report(p, f):
     for n in f:
         print(f"  FAILED: {n}")
 
-asyncio.run(main())
+
+if __name__ == '__main__':
+    asyncio.run(main())
