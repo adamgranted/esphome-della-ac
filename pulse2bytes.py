@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Decode raw pulse timings (open-drain 4800 8E1 UART, AUX HVAC protocol)
-into bytes + CRC16 (RFC1071) validation."""
+into bytes + CRC16 (RFC1071) validation.
+
+Usage: pulse2bytes.py <esphome-remote.raw-log-file>
+Capture the log first with the della-la.yaml logic-analyzer build:
+  esphome logs della-la.yaml | tee mycapture.log
+"""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from analyze_bursts import parse, lows_sig, HB
@@ -56,7 +61,9 @@ def show(name, t):
         calc = crc16_rfc1071(body)
         print(f"CRC16 in frame: {crc:04X}  calculated: {calc:04X}  {'VALID' if crc == calc else 'MISMATCH'}")
 
-bursts = parse('captures/della-logs7-longraw.txt')
+if len(sys.argv) < 2:
+    sys.exit(__doc__)
+bursts = parse(sys.argv[1])
 hb = next(t for ts, t in bursts if lows_sig(t) == HB and len(t) == 33)
 show("HEARTBEAT", hb)
 for idx, (ts, t) in enumerate([(ts, t) for ts, t in bursts if not (lows_sig(t) == HB and len(t) == 33)]):

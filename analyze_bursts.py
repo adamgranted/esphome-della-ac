@@ -66,7 +66,9 @@ def main(path):
                 print(f"  pos {i:3d}: {sorted(set(vals))}")
 
 if __name__ == '__main__':
-    main(sys.argv[1] if len(sys.argv) > 1 else 'captures/della-logs7-longraw.txt')
+    if len(sys.argv) < 2:
+        sys.exit("usage: analyze_bursts.py <esphome-remote.raw-log-file>")
+    main(sys.argv[1])
 
 # --- decode model (established 2026-06-12 ~12:50) ---------------------------
 # Line: open-drain, idles HIGH (remote_receiver: negative = LOW, confirmed via

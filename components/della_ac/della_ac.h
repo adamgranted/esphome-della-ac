@@ -9,7 +9,7 @@
 // ClimateCall are modified. Refused if the last readback is stale (>15 s;
 // at the 1 s poll cadence it is ~2 s old at most).
 //
-// Protocol facts (verified live 2026-06-12, see HANDOFF.md):
+// Protocol facts (full map: docs/PROTOCOL.md):
 //   small body: [2] vlouver(0-2)|setpoint-8<<3   [4] ir-min(0-5)|frac.5(7)
 //               [5] fan(0xE0: 20=HI 40=MED 60=LO A0=AUTO)
 //               [6] turbo(0x40)|mute(0x80)

@@ -1,23 +1,18 @@
 # =============================================================================
-# della-slwf.yaml — v5 AUX PROTOCOL: POLLING + GUARDED SETPOINT TEST
-# Della 048-MS (AUX OEM) <-> SMLIGHT SLWF-01 (ESP8266)
+# della-slwf.yaml — Della 048-MS (AUX OEM) main firmware
+# Della 048-MS <-> ESP8266 dongle (developed on SMLIGHT SLWF-01)
 #
-# Protocol: AUX HVAC @ 4800 8E1, open-drain bus. Verified live with CRC16
-# (RFC1071 word-sum). References: GrKoR/AUX_HVAC_Protocol,
-# GrKoR/esphome_aux_ac_component (packet masks ported verbatim from aux_ac.h).
+# Protocol: AUX HVAC @ 4800 8E1, open-drain bus, CRC16 (RFC1071 word-sum).
+# References: GrKoR/AUX_HVAC_Protocol, GrKoR/esphome_aux_ac_component.
+# Full byte-level map and quirks: docs/PROTOCOL.md.
 #
-# RX: remote_receiver pulse decode on GPIO14 (immune to the AC MCU's release
-#     jitter; naive UART RX at 4800 could misread first 1-bits after long
-#     0-runs). TX: uart on GPIO12 (idles high, FET/open-drain on the 5V side
-#     per hardware validation -> contention-safe).
-#
-# TX frames (adam approved write tests 2026-06-12):
-#   - ping answer (presence keepalive, stock-dongle behavior)
-#   - small/big status requests (read semantics; enables fast updates)
-#   - SET_PARAMS built by copying the unit's own small-status body and
-#     modifying ONLY the target-temp bits; refused unless the fresh readback
-#     shows power=ON and mode=COOL. Setpoint clamped to original +/-1.0 C.
-#     This cannot turn the unit off or change mode by construction.
+#   RX: remote_receiver pulse decode on GPIO14 -> bits -> 8E1 bytes -> CRC,
+#       immune to the AC MCU's late rising edges (naive UART RX at 4800 can
+#       misread the first 1-bit after a long 0-run).
+#   TX: uart on GPIO12 (idles high, open-drain on the 5 V side -> contention-
+#       safe). Pings answered here; status requests scheduled by the poller;
+#       the climate entity (components/della_ac) builds SET_PARAMS by copying
+#       the unit's latest settings frame and changing only commanded fields.
 #
 # Field layout (packet byte = body index + 8):
 #   small body: [2] vlouver|setpoint<<3  [4] irtimer|frac<<7  [5] fan
