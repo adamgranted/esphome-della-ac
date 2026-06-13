@@ -39,13 +39,29 @@ external_components:
       path: components
 
 logger:
-  baud_rate: 0          # keep the logger off the UART pins
-  level: INFO           # clean by default; the "Verbose logs" switch adds
-                        # per-frame detail at runtime without a reflash
+  # UART0 (GPIO1/3) is the SLWF-01 Pro's USB-C flashing/console port — separate
+  # from the AC bus (GPIO12 TX / GPIO14 RX pulse-decode), so a serial console
+  # here never reaches the AC. Leaving baud_rate at its default also enables
+  # improv_serial below. level INFO stays clean; the "Verbose logs" switch adds
+  # per-frame detail at runtime without a reflash.
+  level: INFO
 
 # Fallback hotspot + on-device Wi-Fi provisioning page. The entry files supply
 # the matching `wifi:` block (real credentials, or the release AP).
 captive_portal:
+
+# Lets the browser flasher (ESP Web Tools) offer "Configure Wi-Fi" over the
+# USB-C serial link right after install, on top of the captive-portal AP.
+improv_serial:
+
+# Debug dashboard at the device's IP: live entity states + log stream. It is
+# unauthenticated on the LAN; web-based OTA is disabled (use the native
+# ESPHome OTA), so the page is view/control only.
+web_server:
+  port: 80
+  version: 3
+  local: true
+  ota: false
 
 # TX-only UART to the AC (GPIO12 -> USB D+ -> AC RX). 4800 8E1.
 uart:

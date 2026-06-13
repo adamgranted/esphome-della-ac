@@ -74,10 +74,15 @@ Plug the SLWF-01 into your computer over USB and **[install it from your browser
 (Chrome/Edge), or download `della-ac-esp8266.factory.bin` and flash it with
 `esptool.py write_flash 0x0 della-ac-esp8266.factory.bin`.
 
-On first boot the dongle has no Wi-Fi, so it starts an **`AC-wifi`** hotspot
-(password `slwf01pro`). Join it, enter your network in the captive portal, then
-move the dongle to the AC's service port and adopt it in Home Assistant — set
-your own API key and OTA password when you do.
+On first boot the dongle has no Wi-Fi. Give it yours either way: the browser
+flasher offers a **Configure Wi-Fi** step right after install (over the same
+USB-C link), or join the **`AC-wifi`** hotspot it raises (password `slwf01pro`)
+and pick your network in the captive portal. Then move the dongle to the AC's
+service port and adopt it in Home Assistant — set your own API key and OTA
+password when you do.
+
+Once it's on your network, a debug dashboard (entity states + live logs) is
+served at the device's IP.
 
 ### Option 2 — build from source
 
