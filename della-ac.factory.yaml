@@ -1,0 +1,39 @@
+# =============================================================================
+# della-ac.factory.yaml — public, secret-free release image
+#
+# This is what the GitHub release build compiles into a flashable binary
+# (.github/workflows/publish-firmware.yml). It carries NO Wi-Fi credentials,
+# NO API encryption key, and NO OTA password — nothing personal is baked in.
+#
+# First boot therefore has no network to join, so the device starts its own
+# "AC-wifi" hotspot. Connect to it and the captive portal (from the base
+# package) lets you hand over your Wi-Fi. After it joins, adopt it in the
+# ESPHome dashboard / Home Assistant and set your own API key + OTA password.
+#
+# To build your own image instead, use della-slwf.yaml (reads secrets.yaml).
+# =============================================================================
+
+esphome:
+  name: della-ac
+  friendly_name: Della AC
+  min_version: 2026.5.3
+  project:
+    name: adamgranted.della-ac
+    version: "1.0.0"
+
+packages:
+  base: !include della-ac.base.yaml
+
+# No `ssid:` — with no saved network the device comes up as this AP. The AP
+# name/password copy the SLWF-01's factory defaults printed on the board.
+wifi:
+  ap:
+    ssid: "AC-wifi"
+    password: "slwf01pro"
+
+# Open native API + passwordless OTA so the device can be adopted and secured
+# during pairing. Set your own encryption key and OTA password when you adopt.
+api:
+
+ota:
+  - platform: esphome

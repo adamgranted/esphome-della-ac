@@ -9,7 +9,7 @@
   </a>
   <h2>esphome-della-ac</h2>
   <p align="center">
-      <p><b>Local Home Assistant control for Della mini-split air conditioners</b></p>
+      <p><b>Local Home Assistant control for the Della 048-MS mini split</b></p>
   </p>
 
   <p align="center">
@@ -67,17 +67,28 @@ story and byte-level map are in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 ## Installation
 
+### Option 1 — flash the release build (no toolchain)
+
+A pre-built, secret-free image is published with each [release](https://github.com/adamgranted/esphome-della-ac/releases).
+Plug the SLWF-01 into your computer over USB and **[install it from your browser](https://adamgranted.github.io/esphome-della-ac/)**
+(Chrome/Edge), or download `della-ac.factory.bin` and flash it with
+`esptool.py write_flash 0x0 della-ac.factory.bin`.
+
+On first boot the dongle has no Wi-Fi, so it starts an **`AC-wifi`** hotspot
+(password `slwf01pro`). Join it, enter your network in the captive portal, then
+move the dongle to the AC's service port and adopt it in Home Assistant — set
+your own API key and OTA password when you do.
+
+### Option 2 — build from source
+
 1. Install [ESPHome](https://esphome.io/) (2026.5.3 known-good).
-2. Copy the secrets template and fill it in:
-   ```bash
-   cp secrets.yaml.example secrets.yaml
-   ```
-3. Flash the firmware (USB the first time, OTA thereafter):
-   ```bash
-   esphome run della-slwf.yaml
-   ```
-4. In Home Assistant, accept the device the **ESPHome** integration auto-discovers. The
-   `Della AC` climate entity and telemetry sensors appear on the device page.
+2. Copy the secrets template and fill it in: `cp secrets.yaml.example secrets.yaml`.
+3. Flash (USB the first time, OTA thereafter): `esphome run della-slwf.yaml`.
+4. Accept the device the **ESPHome** integration auto-discovers in Home Assistant;
+   the `Della AC` climate entity and telemetry sensors appear on its device page.
+
+Both builds share [`della-ac.base.yaml`](della-ac.base.yaml) — `della-slwf.yaml`
+adds your secrets, `della-ac.factory.yaml` is the secret-free release image.
 
 
 ## How it works
@@ -95,7 +106,9 @@ the firmware compensates for.
 
 | Path | What |
 |------|------|
-| `della-slwf.yaml` | Main firmware (RX decode, polling, climate + telemetry entities) |
+| `della-ac.base.yaml` | Shared firmware body (RX decode, polling, climate + telemetry entities) |
+| `della-slwf.yaml` | Personal build — base + your secrets (`esphome run` this) |
+| `della-ac.factory.yaml` | Secret-free release image — base + `AC-wifi` AP for pairing |
 | `components/della_ac/` | Local ESPHome climate component (the HA-thermostat shell) |
 | `della-la.yaml` | Bare "logic analyzer" build — raw pulse dump for protocol work |
 | `analyze_bursts.py`, `pulse2bytes.py` | Offline decoders: log pulses → bytes → CRC |
