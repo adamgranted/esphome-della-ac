@@ -42,8 +42,9 @@ external_components:
       path: components
 
 logger:
-  baud_rate: 0
-  level: DEBUG
+  baud_rate: 0          # keep the logger off the UART pins
+  level: INFO           # clean by default; the "Verbose logs" switch adds
+                        # per-frame detail at runtime without a reflash
 
 api:
   encryption:
@@ -93,6 +94,9 @@ globals:
   - id: poll_phase            # alternate small/big
     type: bool
     initial_value: 'false'
+  - id: link_up               # last-published link state (for up/down logging)
+    type: bool
+    initial_value: 'false'
 
 climate:
   - platform: della_ac
@@ -118,7 +122,9 @@ script:
 remote_receiver:
   pin:
     number: GPIO14
-  dump: raw
+  # No `dump:` — on_raw still fires, but we skip ESPHome's built-in per-burst
+  # pulse-timing log line (that was the 1 Hz spam). Frame-level detail is
+  # available at runtime via the "Verbose logs" switch instead.
   filter: 20us
   # 8ms: longest legit intra-frame high is ~1.7ms; the unit can emit separate
   # frames as little as ~11ms apart (observed ping 10.9ms after a poll reply
@@ -211,7 +217,7 @@ remote_receiver:
 
           // ---------------- SET ACK (4-byte body echoes our CRC) ----------------
           if (data.size() == 14 && data[2] == 0x07 && data[9] == 0x01) {
-            ESP_LOGI("aux", "SET ACK: %s", hex.c_str());
+            if (id(verbose_logs).state) ESP_LOGI("della.rx", "SET ACK: %s", hex.c_str());
             return;
           }
 
@@ -249,6 +255,8 @@ remote_receiver:
               pos++;
               continue;
             }
+            if (id(verbose_logs).state)
+              ESP_LOGI("della.rx", "RX %s", hex.c_str());
             dispatch(data, hex, now);
             good_frames++;
             pos += flen;
@@ -285,13 +293,25 @@ interval:
           bool alive = (id(ping_count) + id(status_count)) > 0 &&
                        (millis() - id(last_rx_ms)) < 15000;
           id(mcu_link).publish_state(alive);
+          if (alive != id(link_up)) {            // log only the transition
+            id(link_up) = alive;
+            ESP_LOGI("della", "AC link %s", alive ? "up" : "lost");
+          }
 
 switch:
+  - platform: template
+    name: "Verbose logs"
+    id: verbose_logs
+    icon: mdi:text-search
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
     name: "Ping ACK (module presence)"
     id: ping_ack_enable
     icon: mdi:handshake
     entity_category: config
+    disabled_by_default: true   # advanced/diagnostic
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
   - platform: template
@@ -330,11 +350,15 @@ number:
     mode: box
 
 button:
+  - platform: restart
+    name: "Restart"
+    entity_category: diagnostic
   - platform: template
     name: "Request status now"
     id: btn_poll_now
     icon: mdi:download
     entity_category: config
+    disabled_by_default: true   # advanced; auto-poll already keeps state fresh
     on_press:
       - script.execute: send_small_request
       - delay: 700ms
@@ -386,13 +410,26 @@ sensor:
     name: "Fan speed code"
     icon: mdi:fan
     accuracy_decimals: 0
+    entity_category: diagnostic   # raw code; the climate fan mode is user-facing
+    disabled_by_default: true
     update_interval: never
+  # Standard device-management niceties users expect on an ESP device.
+  - platform: wifi_signal
+    name: "Wi-Fi signal"
+    entity_category: diagnostic
+    update_interval: 60s
+  - platform: uptime
+    name: "Uptime"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 60s
   - platform: template
     id: hb_interval
     name: "MCU ping interval"
     unit_of_measurement: s
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: never
     filters:
       - delta: 0.4
@@ -403,6 +440,7 @@ sensor:
     accuracy_decimals: 0
     state_class: total_increasing
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: never
   - platform: template
     id: status_count_sensor
@@ -411,6 +449,7 @@ sensor:
     accuracy_decimals: 0
     state_class: total_increasing
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: never
   - platform: template
     id: bad_frame_count_sensor
@@ -419,6 +458,7 @@ sensor:
     accuracy_decimals: 0
     state_class: total_increasing
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: never
 
 text_sensor:
@@ -427,18 +467,21 @@ text_sensor:
     name: "Last status frame"
     icon: mdi:matrix
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: never
   - platform: template
     id: last_small_frame
     name: "Last small frame"
     icon: mdi:matrix
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: never
   - platform: template
     id: unknown_frame
     name: "Last unknown frame"
     icon: mdi:alert-decagram
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: never
 
 binary_sensor:
