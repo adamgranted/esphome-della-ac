@@ -24,9 +24,9 @@
 <br>
 
 ESPHome firmware that exposes a **Della 048-MS** mini split as a full Home Assistant
-thermostat — no cloud, no Tuya account. It replaces the stock Wi-Fi dongle with any
-ESP8266 stick (developed on a [SMLIGHT SLWF-01](https://smlight.tech/)) plugged into the
-indoor unit's USB-A service port.
+thermostat — no cloud, no Tuya account. It replaces the stock Wi-Fi dongle with an
+[SMLIGHT SLWF-01](https://smlight.tech/) running this firmware, plug-and-play with the
+Della's USB-A service port.
 
 The Della 048-MS does **not** speak the TCL protocol its USB port suggests — it is an
 **AUX OEM** unit speaking the AUX HVAC serial protocol at **4800 baud, 8E1**, on an
@@ -52,12 +52,17 @@ story and byte-level map are in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 ## Hardware
 
-- A **Della 048-MS** mini split (other AUX-built Della/AUX-OEM units may work — see
+- A **Della 048-MS** mini split (other AUX-built Della / AUX-OEM units likely work — see
   [`docs/PROTOCOL.md`](docs/PROTOCOL.md)).
-- An **ESP8266** dongle for the indoor unit's USB-A port. Developed on the SMLIGHT
-  SLWF-01 (ESP-12F; AC-side UART on **GPIO12 = TX, GPIO14 = RX**, 5 V from the port).
-- The port is a standard 4-pin 5 V TTL UART. It is **not** a USB device — do not plug it
-  into a computer.
+- A **SMLIGHT SLWF-01** (ESP-12F). It drops straight into the indoor unit's USB-A service
+  port and already carries everything the link needs — the USB-A header, 5 V regulation,
+  and the level shifting between the ESP8266's 3.3 V logic and the AC's 5 V TTL UART
+  (AC-side UART on **GPIO12 = TX, GPIO14 = RX**). No wiring, no extra parts.
+- **DIY or other ESP8266 boards** are likely supported, but you would have to provide that
+  same supporting circuitry yourself — there is no reference design here. The SLWF-01 is
+  the simple path.
+- The service port is a 4-pin 5 V TTL UART, **not** a USB device — do not plug it into a
+  computer.
 
 
 ## Installation
