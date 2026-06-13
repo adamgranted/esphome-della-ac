@@ -71,8 +71,8 @@ story and byte-level map are in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 A pre-built, secret-free image is published with each [release](https://github.com/adamgranted/esphome-della-ac/releases).
 Plug the SLWF-01 into your computer over USB and **[install it from your browser](https://adamgranted.github.io/esphome-della-ac/)**
-(Chrome/Edge), or download `della-ac.factory.bin` and flash it with
-`esptool.py write_flash 0x0 della-ac.factory.bin`.
+(Chrome/Edge), or download `della-ac-esp8266.factory.bin` and flash it with
+`esptool.py write_flash 0x0 della-ac-esp8266.factory.bin`.
 
 On first boot the dongle has no Wi-Fi, so it starts an **`AC-wifi`** hotspot
 (password `slwf01pro`). Join it, enter your network in the captive portal, then
