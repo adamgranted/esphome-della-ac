@@ -45,9 +45,12 @@ jobs:
       - name: Validate config (schema lint, version floor)
         run: |
           esphome config della-slwf.yaml
+          esphome config della-ac.factory.yaml   # secret-free release image
           esphome config della-la.yaml
 
       - name: Compile firmware (builds the custom C++ component)
+        # della-slwf.yaml and della-ac.factory.yaml share della-ac.base.yaml,
+        # so one compile exercises the full RX/TX body and the C++ component.
         run: esphome compile della-slwf.yaml
 
   python:
