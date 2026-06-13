@@ -1,0 +1,11 @@
+# Pin the ESPHome build this firmware targets. Keep in sync with `min_version`
+# in della-slwf.yaml / della-la.yaml and the CI workflow.
+esphome==2026.5.3
+
+# Test runner for the protocol tools.
+pytest>=8,<9
+
+# Runtime deps for the device-facing helper scripts (della_ctl.py,
+# test_ladder.py, ir_sweep.py). Not needed to run the test suite.
+pyyaml
+aioesphomeapi
