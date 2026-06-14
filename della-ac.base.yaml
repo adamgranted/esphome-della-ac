@@ -385,7 +385,7 @@ number:
     min_value: 1
     max_value: 30
     step: 1
-    initial_value: 7
+    initial_value: 1   # ~2 s per frame type (small/big alternate); bus stays light
     optimistic: true
     restore_value: true
     entity_category: config
