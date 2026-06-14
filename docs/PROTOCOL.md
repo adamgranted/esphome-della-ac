@@ -60,12 +60,13 @@ Packet byte index = body index + 8.
 | Byte | Field | Notes |
 |------|-------|-------|
 | 2 | v-louver (bits 0–2) \| setpoint int (bits 3–7) | louver 0 = swing, 7 = stop; temp = `8 + (v >> 3)` °C |
+| 3 | h-louver (bits 5–7) | 0 = swing, `0x20` = stop |
 | 4 | minutes-since-last-command (bits 0–5) \| half-degree flag (bit 7) | counter resets on any accepted command |
 | 5 | fan speed (bits 5–7) | `0x20` high, `0x40` med, `0x60` low, `0xA0` auto |
 | 6 | turbo (bit 6) \| mute (bit 7) | |
 | 7 | mode (bits 5–7) \| °F display (bit 1) \| sleep (bit 2) | mode `0x00` auto, `0x20` cool, `0x40` dry, `0x80` heat, `0xC0` fan |
-| 10 | power (bit 5) \| iClean (bit 2) \| health/ion (bit 1) | |
-| 12 | display (bit 4) \| mildew (bit 3) | |
+| 10 | power (bit 5) \| eco (bit 3) \| iClean (bit 2) \| health/ion (bits 0–1) | health sets both low bits (`0x03`); iClean is honoured only with power off (reports `0x04`, power bit clear) |
+| 12 | display (bit 4) \| anti-fungus (bit 3) | anti-fungus is set only with the unit off; arms a post-shutdown dry cycle |
 | 13 | inverter power limit (bit 7 enable, bits 0–6 value) | |
 | 14 | setpoint tenths | combined with byte 2 integer part |
 
@@ -75,6 +76,7 @@ Packet byte index = body index + 8.
 
 | Byte | Field | Encoding |
 |------|-------|----------|
+| 13 | reported fan speed | live blower speed: `2` low, `4` med, `6` high (in auto, reports the speed the unit picked) |
 | 15 | indoor temperature | `value − 0x20` °C, tenths in byte 31 low nibble |
 | 16–18 | evaporator coil temperature | `value − 0x20` °C |
 | 20 | outdoor temperature | `value − 0x20` °C |
