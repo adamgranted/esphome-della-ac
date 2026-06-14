@@ -10,7 +10,8 @@
 // at the 1 s poll cadence it is ~2 s old at most).
 //
 // Protocol facts (full map: docs/PROTOCOL.md):
-//   small body: [2] vlouver(0-2)|setpoint-8<<3   [4] ir-min(0-5)|frac.5(7)
+//   small body: [2] vlouver(0-2: 0=swing)|setpoint-8<<3   [3] hlouver(5-7: 0=swing)
+//               [4] ir-min(0-5)|frac.5(7)
 //               [5] fan(0xE0: 20=HI 40=MED 60=LO A0=AUTO)
 //               [6] turbo(0x40)|mute(0x80)
 //               [7] mode(0xE0: 00=auto 20=cool 40=dry 80=heat C0=fan)
@@ -73,8 +74,11 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
       }
     }
 
+    bool v_swing = (body[2] & 0x07) == 0x00;   // v_louver 0 = swing, 7 = fixed
+    bool h_swing = (body[3] & 0xE0) == 0x00;   // h_louver 0 = swing, 0x20 = fixed
     climate::ClimateSwingMode swing =
-        ((body[2] & 0x07) == 0x00) ? climate::CLIMATE_SWING_VERTICAL : climate::CLIMATE_SWING_OFF;
+        v_swing ? (h_swing ? climate::CLIMATE_SWING_BOTH : climate::CLIMATE_SWING_VERTICAL)
+                : (h_swing ? climate::CLIMATE_SWING_HORIZONTAL : climate::CLIMATE_SWING_OFF);
 
     climate::ClimatePreset preset = climate::CLIMATE_PRESET_NONE;
     if (body[6] & 0x40)
@@ -122,8 +126,9 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
     }
   }
 
-  void ingest_big(float indoor, uint8_t inverter_power) {
+  void ingest_big(float indoor, uint8_t inverter_power, uint8_t fan_actual) {
     this->inverter_power_ = inverter_power;
+    this->fan_actual_ = fan_actual;
     bool changed = isnan(this->current_temperature) ||
                    fabsf(indoor - this->current_temperature) > 0.05f;
     this->current_temperature = indoor;
@@ -132,24 +137,149 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
       this->publish_state();
   }
 
-  // display on/off (small body[12] bit 4) — for a YAML template switch
-  void set_display(bool on) {
-    if (!this->fresh_()) {
-      ESP_LOGW(TAG, "display: no fresh small status, refusing");
-      return;
-    }
+  // Single-bit feature toggles in the small-status body, exposed as YAML
+  // template switches. All route through set_feature_(), which rebuilds the SET
+  // from the latest status WITH setpoint compensation, so toggling a feature
+  // never erodes a fractional setpoint.
+  void set_display(bool on) { this->set_feature_(12, 0x10, on); }     // panel light
+  bool display_state() const { return this->feature_state_(12, 0x10); }
+  void set_health(bool on) { this->set_feature_(10, 0x03, on); }      // ionizer/health (IR-confirmed: bits 0+1)
+  bool health_state() const { return this->feature_state_(10, 0x03); }
+  void set_eco(bool on) { this->set_feature_(10, 0x08, on); }         // energy-save (IR-confirmed [10].3)
+  bool eco_state() const { return this->feature_state_(10, 0x08); }
+
+  // Self-clean and Anti-fungus are OFF-STATE functions (verified live on the
+  // unit): the AC only honors them with the power bit cleared, so they force
+  // power off in the SET rather than being plain set_feature_() toggles.
+  void press_iclean() {                       // start the evaporator self-clean cycle
     uint8_t b[15];
-    memcpy(b, this->small_body_, 15);
-    b[0] = 0x01; b[1] = 0x01;
-    b[4] &= 0x80;
-    if (on) b[12] |= 0x10; else b[12] &= ~0x10;
+    if (!this->prepare_set_(b))
+      return;
+    b[10] = (b[10] & ~0x20) | 0x04;           // power off + iClean active (observed state = 0x04)
     this->send_cmd_(b);
   }
+  // "actively self-cleaning" = clean bit set AND power off (the real cycle
+  // reports power-off + 0x04). A stray 0x04 on a powered unit is not a cycle.
+  bool iclean_state() const { return this->have_small_ && (this->small_body_[10] & 0x24) == 0x04; }
+  void set_antifungus(bool on) {              // arm/disarm the shutdown dry cycle ([12].3)
+    uint8_t b[15];
+    if (!this->prepare_set_(b))
+      return;
+    b[10] &= ~0x20;                           // anti-f is only accepted with the unit off
+    if (on) b[12] |= 0x08; else b[12] &= ~0x08;
+    this->send_cmd_(b);
+  }
+  bool antifungus_state() const { return this->feature_state_(12, 0x08); }
 
-  bool display_state() const { return this->have_small_ && (this->small_body_[12] & 0x10); }
+  // Big-frame [13] = reported live blower speed. Mapped on the unit (2/4/6).
+  const char *fan_actual_str() const {
+    switch (this->fan_actual_) {
+      case 2: return "low";
+      case 4: return "med";
+      case 6: return "high";
+      case 0: return "idle";
+      default: return "?";
+    }
+  }
+
+  // One readable summary for the "Status" text sensor. Folding setpoint, mode,
+  // fan, swing, preset and active features into a single string means a
+  // setpoint change (a climate attribute HA's logbook ignores) — and every
+  // other change — lands as one state change in the HA history/logbook.
+  std::string status_line() {
+    // NOTE: build only from plain string literals. On ESP8266 the climate_*_to_string
+    // helpers return LOG_STR (PROGMEM) pointers; feeding those to std::string does a
+    // byte-wise flash read that faults and crash-loops the device.
+    if (!this->have_small_)
+      return "--";
+    if (this->mode == climate::CLIMATE_MODE_OFF) {
+      std::string s = this->iclean_state() ? "self-clean" : "off";
+      if (this->antifungus_state()) s += " | anti-fungus armed";
+      return s;
+    }
+    const char *mode_s;
+    switch (this->mode) {
+      case climate::CLIMATE_MODE_COOL: mode_s = "cool"; break;
+      case climate::CLIMATE_MODE_HEAT: mode_s = "heat"; break;
+      case climate::CLIMATE_MODE_DRY: mode_s = "dry"; break;
+      case climate::CLIMATE_MODE_FAN_ONLY: mode_s = "fan"; break;
+      default: mode_s = "auto"; break;  // HEAT_COOL
+    }
+    std::string s = mode_s;
+    bool degf = this->small_body_[7] & 0x02;
+    float disp = degf ? this->target_temperature * 9.0f / 5.0f + 32.0f : this->target_temperature;
+    char buf[24];
+    snprintf(buf, sizeof(buf), degf ? " %.0fF" : " %.1fC", disp);
+    s += buf;
+    const char *fan_s;
+    switch (this->fan_mode.value()) {
+      case climate::CLIMATE_FAN_HIGH: fan_s = "high"; break;
+      case climate::CLIMATE_FAN_MEDIUM: fan_s = "med"; break;
+      case climate::CLIMATE_FAN_LOW: fan_s = "low"; break;
+      case climate::CLIMATE_FAN_QUIET: fan_s = "quiet"; break;
+      default: fan_s = "auto"; break;
+    }
+    s += " | fan "; s += fan_s;
+    // In Auto the unit picks a speed — surface what it's actually running.
+    if (this->fan_mode.value() == climate::CLIMATE_FAN_AUTO && this->fan_actual_) {
+      s += " ("; s += this->fan_actual_str(); s += ")";
+    }
+    if (this->swing_mode != climate::CLIMATE_SWING_OFF) {
+      const char *sw;
+      switch (this->swing_mode) {
+        case climate::CLIMATE_SWING_BOTH: sw = "both"; break;
+        case climate::CLIMATE_SWING_VERTICAL: sw = "vert"; break;
+        case climate::CLIMATE_SWING_HORIZONTAL: sw = "horiz"; break;
+        default: sw = "off"; break;
+      }
+      s += " | swing "; s += sw;
+    }
+    if (this->preset.value() == climate::CLIMATE_PRESET_BOOST) s += " | turbo";
+    else if (this->preset.value() == climate::CLIMATE_PRESET_SLEEP) s += " | sleep";
+    if (this->health_state()) s += " | health";
+    if (this->eco_state()) s += " | eco";
+    if (this->antifungus_state()) s += " | anti-fungus";
+    return s;
+  }
 
  protected:
   bool fresh_() { return this->have_small_ && (millis() - this->last_small_ms_) < 15000; }
+
+  // Rebuild a SET body from the latest small status: command bytes set,
+  // IR-minutes cleared, and the *current* setpoint re-encoded with the
+  // tenths+1 compensation (so a feature toggle doesn't erode a fractional
+  // setpoint — see control()). Returns false if there's no fresh status.
+  bool prepare_set_(uint8_t b[15]) {
+    if (!this->fresh_()) {
+      ESP_LOGW(TAG, "set: no fresh small status, refusing");
+      return false;
+    }
+    memcpy(b, this->small_body_, 15);
+    b[0] = 0x01; b[1] = 0x01;
+    b[4] &= 0x80;
+    float t = 8.0f + ((b[2] >> 3) & 0x1F) + b[14] / 10.0f;
+    uint8_t send_int = (uint8_t) t;
+    uint8_t send_tenths = ((uint8_t) lroundf(t * 10.0f)) % 10;
+    if (send_tenths != 0 && send_tenths != 5) {
+      send_tenths += 1;
+      if (send_tenths == 10) { send_tenths = 0; send_int += 1; }
+    }
+    b[2] = (b[2] & 0x07) | (uint8_t)((send_int - 8) << 3);
+    b[14] = send_tenths;
+    b[4] = (b[4] & 0x7F) | (send_tenths == 5 ? 0x80 : 0x00);
+    return true;
+  }
+
+  void set_feature_(uint8_t idx, uint8_t mask, bool on) {
+    uint8_t b[15];
+    if (!this->prepare_set_(b))
+      return;
+    if (on) b[idx] |= mask; else b[idx] &= ~mask;
+    this->send_cmd_(b);
+  }
+  bool feature_state_(uint8_t idx, uint8_t mask) const {
+    return this->have_small_ && (this->small_body_[idx] & mask);
+  }
 
   // returns true if action changed
   bool update_action_() {
@@ -246,8 +376,10 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
 
     if (call.get_swing_mode().has_value()) {
       auto s = *call.get_swing_mode();
-      // 0 = swing, 7 = stop at current position
-      b[2] = (b[2] & ~0x07) | (s == climate::CLIMATE_SWING_VERTICAL ? 0x00 : 0x07);
+      bool v = s == climate::CLIMATE_SWING_VERTICAL || s == climate::CLIMATE_SWING_BOTH;
+      bool h = s == climate::CLIMATE_SWING_HORIZONTAL || s == climate::CLIMATE_SWING_BOTH;
+      b[2] = (b[2] & ~0x07) | (v ? 0x00 : 0x07);   // v_louver: 0 = swing, 7 = fixed
+      b[3] = (b[3] & ~0xE0) | (h ? 0x00 : 0x20);   // h_louver: 0 = swing, 0x20 = fixed
       this->swing_mode = s;
     }
 
@@ -257,6 +389,12 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
       b[7] = (b[7] & ~0x04) | (p == climate::CLIMATE_PRESET_SLEEP ? 0x04 : 0x00);
       this->preset = p;
     }
+
+    // Self-clean is mutually exclusive with a running mode: never command (or
+    // leave) the clean bit set while powered on, else the unit gets stuck at
+    // 0x24 (cooling + clean-flag) after a cycle is cancelled with power.
+    if (b[10] & 0x20)
+      b[10] &= ~0x04;
 
     this->send_cmd_(b);
     this->update_action_();
@@ -297,7 +435,8 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
     t.set_supported_fan_modes({climate::CLIMATE_FAN_AUTO, climate::CLIMATE_FAN_LOW,
                                climate::CLIMATE_FAN_MEDIUM, climate::CLIMATE_FAN_HIGH,
                                climate::CLIMATE_FAN_QUIET});
-    t.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL});
+    t.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL,
+                                 climate::CLIMATE_SWING_HORIZONTAL, climate::CLIMATE_SWING_BOTH});
     t.set_supported_presets({climate::CLIMATE_PRESET_NONE, climate::CLIMATE_PRESET_BOOST,
                              climate::CLIMATE_PRESET_SLEEP});
     t.set_visual_min_temperature(16);
@@ -312,6 +451,7 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
   bool first_publish_{true};
   uint32_t last_small_ms_{0};
   uint8_t inverter_power_{0};
+  uint8_t fan_actual_{0};   // big-frame [13]: reported live blower speed (2/4/6 = low/med/high)
 };
 
 }  // namespace della_ac

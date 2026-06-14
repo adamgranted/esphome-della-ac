@@ -196,7 +196,7 @@ remote_receiver:
           // ---------------- BIG STATUS (0x20 unsolicited / 0x21 polled) ----------------
           if (data.size() == 34 && data[2] == 0x07 && (data[9] == 0x20 || data[9] == 0x21)) {
             id(status_count) += 1;
-            id(last_status_frame).publish_state(hex);
+            if (id(verbose_logs).state) id(last_status_frame).publish_state(hex);
             id(ac_fan_code).publish_state(data[13]);
             id(indoor_temp).publish_state((float) data[15] - 0x20 + (data[31] & 0x0F) / 10.0f);
             id(coil_temp).publish_state((float) data[16] - 0x20);
@@ -204,13 +204,13 @@ remote_receiver:
             id(compressor_temp).publish_state((float) data[22] - 0x20);
             id(inverter_power).publish_state(data[24]);
             id(della_thermostat).ingest_big((float) data[15] - 0x20 + (data[31] & 0x0F) / 10.0f,
-                                            data[24]);
+                                            data[24], data[13]);
             return;
           }
 
           // ---------------- SMALL STATUS (settings; 15-byte body) ----------------
           if (data.size() == 25 && data[2] == 0x07 && data[9] == 0x11) {
-            id(last_small_frame).publish_state(hex);
+            if (id(verbose_logs).state) id(last_small_frame).publish_state(hex);
             id(della_thermostat).ingest_small(&data[8], 15);
             return;
           }
@@ -222,7 +222,7 @@ remote_receiver:
           }
 
             ESP_LOGW("aux", "UNKNOWN valid frame (%u bytes): %s", data.size(), hex.c_str());
-            id(unknown_frame).publish_state(hex);
+            if (id(verbose_logs).state) id(unknown_frame).publish_state(hex);
           };
 
           size_t pos = 0;
@@ -334,6 +334,48 @@ switch:
     turn_off_action:
       - lambda: |-
           id(della_thermostat).set_display(false);
+  - platform: template
+    name: "Health (ionizer)"
+    id: health_mode
+    icon: mdi:air-purifier
+    entity_category: config
+    lambda: |-
+      return id(della_thermostat).health_state();
+    turn_on_action:
+      - lambda: |-
+          id(della_thermostat).set_health(true);
+    turn_off_action:
+      - lambda: |-
+          id(della_thermostat).set_health(false);
+  - platform: template
+    name: "Anti-fungus"
+    id: antifungus_mode
+    icon: mdi:weather-fog
+    entity_category: config
+    # OFF-state function: the unit only honors this with the power off, so a
+    # toggle forces power off, then arms/disarms the post-shutdown dry cycle
+    # ([12].3). State reflects the unit's persistent armed flag.
+    lambda: |-
+      return id(della_thermostat).antifungus_state();
+    turn_on_action:
+      - lambda: |-
+          id(della_thermostat).set_antifungus(true);
+    turn_off_action:
+      - lambda: |-
+          id(della_thermostat).set_antifungus(false);
+  - platform: template
+    name: "Eco"
+    id: eco_mode
+    icon: mdi:leaf
+    entity_category: config
+    lambda: |-
+      return id(della_thermostat).eco_state();
+    turn_on_action:
+      - lambda: |-
+          id(della_thermostat).set_eco(true);
+    turn_off_action:
+      - lambda: |-
+          id(della_thermostat).set_eco(false);
 
 number:
   - platform: template
@@ -363,8 +405,32 @@ button:
       - script.execute: send_small_request
       - delay: 700ms
       - script.execute: send_big_request
+  - platform: template
+    name: "Self-clean"
+    id: btn_iclean
+    icon: mdi:spray-bottle
+    entity_category: config
+    # Self-clean is an OFF-state cycle (sprays/freezes/dries the evaporator).
+    # Pressing turns the unit off and starts the cycle; cancel with power.
+    on_press:
+      - lambda: 'id(della_thermostat).press_iclean();'
 
 sensor:
+  - platform: template
+    name: "Setpoint"
+    id: setpoint_temp
+    device_class: temperature
+    unit_of_measurement: °C
+    accuracy_decimals: 1
+    state_class: measurement
+    icon: mdi:thermometer-check
+    update_interval: 2s          # template polls; dedups, so it only posts on change
+    # Typed mirror of the climate target temperature — a first-class numeric
+    # entity for automations (threshold on it) and a clean "desired temp" reading.
+    lambda: |-
+      float t = id(della_thermostat).target_temperature;
+      if (std::isnan(t)) return {};
+      return t;
   - platform: template
     id: indoor_temp
     name: "Indoor temperature"
@@ -463,6 +529,26 @@ sensor:
 
 text_sensor:
   - platform: template
+    name: "Fan speed"
+    id: fan_actual_txt
+    icon: mdi:fan-chevron-up
+    update_interval: 5s
+    # Readable form of the raw "Fan speed code" diagnostic (big-frame [13]):
+    # the live blower speed the unit reports, esp. useful in Auto.
+    lambda: |-
+      return std::string(id(della_thermostat).fan_actual_str());
+  - platform: template
+    name: "Status"
+    id: ac_status
+    icon: mdi:information-outline
+    entity_category: diagnostic   # human-readable glance only; not for automations (untyped)
+    update_interval: 2s
+    # Readable one-line state summary (mode · setpoint · fan · swing · features).
+    # Updates on any change — incl. setpoint, which the HA logbook otherwise
+    # misses because it's a climate attribute, not a state change.
+    lambda: |-
+      return id(della_thermostat).status_line();
+  - platform: template
     id: last_status_frame
     name: "Last status frame"
     icon: mdi:matrix
@@ -489,3 +575,11 @@ binary_sensor:
     id: mcu_link
     name: "MCU heartbeat alive"
     device_class: connectivity
+  - platform: template
+    name: "Self-clean active"
+    id: iclean_active
+    icon: mdi:spray-bottle
+    entity_category: diagnostic
+    device_class: running
+    lambda: |-
+      return id(della_thermostat).iclean_state();

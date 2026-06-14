@@ -38,10 +38,15 @@ story and byte-level map are in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 ## Features
 
 - **Full climate entity** — off / cool / heat / dry / fan-only / heat_cool, fan
-  auto / low / medium / high / quiet, vertical swing, boost (turbo) and sleep presets,
-  current temperature and HVAC action
-- **Telemetry sensors** — evaporator-coil, compressor and outdoor temperatures, plus
-  inverter power %
+  auto / low / medium / high / quiet, vertical / horizontal / both swing, boost (turbo)
+  and sleep presets, current temperature and HVAC action
+- **Feature controls** — Home Assistant entities for the panel display, health
+  (ionizer), eco, self-clean and the anti-fungus dry cycle, each mapped to the remote's
+  real behaviour — the off-state-only functions (self-clean, anti-fungus) are handled
+  as such instead of no-op toggles
+- **Telemetry & status sensors** — evaporator-coil, compressor and outdoor temperatures,
+  inverter power %, the live blower speed, a typed setpoint sensor, and a one-line
+  human-readable status summary
 - **Robust RX** — receives over a pulse-capture path that is immune to the AC MCU's
   ragged rising edges, then reconstructs and CRC-checks every frame on-device
 - **Safe writes** — each command is built by copying the unit's latest status frame and
