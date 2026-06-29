@@ -9,7 +9,7 @@
   </a>
   <h2>esphome-della-ac</h2>
   <p align="center">
-      <p><b>Local Home Assistant control for the Della 048-MS mini split</b></p>
+      <p><b>Local Home Assistant control for AUX-OEM Della mini splits</b></p>
   </p>
 
   <p align="center">
@@ -23,16 +23,32 @@
 
 <br>
 
-ESPHome firmware that exposes a **Della 048-MS** mini split as a full Home Assistant
+ESPHome firmware that exposes an **AUX-OEM Della** mini split as a full Home Assistant
 thermostat — no cloud, no Tuya account. It replaces the stock Wi-Fi dongle with an
 [SMLIGHT SLWF-01](https://smlight.tech/) running this firmware, plug-and-play with the
-Della's USB-A service port.
+Della's USB-A service port. Developed on a **Della 048-MS**; see
+[Supported units](#supported-units) for the model list.
 
-The Della 048-MS does **not** speak the TCL protocol its USB port suggests — it is an
-**AUX OEM** unit speaking the AUX HVAC serial protocol at **4800 baud, 8E1**, on an
+These units do **not** speak the TCL protocol their USB port suggests — they are
+**AUX OEM** hardware speaking the AUX HVAC serial protocol at **4800 baud, 8E1**, on an
 open-drain line. (Sampling that line at the obvious 9600 baud yields a convincing but
 bogus byte stream; that aliasing trap is why earlier attempts never worked.) The full
 story and byte-level map are in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
+
+
+## Supported units
+
+One firmware serves every model — it auto-detects the AC's status-frame variant at
+runtime, so there is **a single build to flash regardless of model** (no per-model
+images to choose between).
+
+| Model | Control | Telemetry | Notes |
+|-------|:------:|:--------:|-------|
+| **Della 048-MS** | ✅ | ✅ | Reference unit — fully verified |
+| **Della Motto JA 12K** (`12K1VRH-20S-JA`) | ✅ | 🧪 beta | Same protocol; setpoint / mode / fan / power confirmed. Telemetry decoded from an idle capture — pending one active-cooling log to confirm the compressor/inverter fields ([#11](https://github.com/adamgranted/esphome-della-ac/issues/11)) |
+
+Other AUX-built Della / AUX-OEM units very likely work. If yours isn't listed, open an
+issue with a `verbose`-on log capture and it can usually be added in a line or two.
 
 
 ## Features
@@ -57,8 +73,8 @@ story and byte-level map are in [`docs/PROTOCOL.md`](docs/PROTOCOL.md).
 
 ## Hardware
 
-- A **Della 048-MS** mini split (other AUX-built Della / AUX-OEM units likely work — see
-  [`docs/PROTOCOL.md`](docs/PROTOCOL.md)).
+- An **AUX-OEM Della** mini split — see [Supported units](#supported-units) for confirmed
+  models (other AUX-built Della units very likely work).
 - A **SMLIGHT SLWF-01** (ESP-12F). It drops straight into the indoor unit's USB-A service
   port and already carries everything the link needs — the USB-A header, 5 V regulation,
   and the level shifting between the ESP8266's 3.3 V logic and the AC's 5 V TTL UART
