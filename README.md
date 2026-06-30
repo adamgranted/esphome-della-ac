@@ -151,3 +151,11 @@ the firmware compensates for.
   the AUX protocol documentation and reference implementation this work builds on.
 - [dudanov/iot-uni-dongle](https://github.com/dudanov/iot-uni-dongle) — dongle hardware
   reference.
+
+
+## License
+
+[GPL-3.0-only](LICENSE) — Copyright (C) 2026 adamgranted. The firmware links the GPLv3
+ESPHome C++ runtime and builds on GrKoR's GPLv3
+[reference implementation](https://github.com/GrKoR/esphome_aux_ac_component), so the
+distributed firmware is licensed under the GPLv3.

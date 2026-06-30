@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 adamgranted
+//
 // della_ac — minimal AUX-protocol climate for the Della 048-MS.
 // RX is handled OUTSIDE this class (remote_receiver pulse decode in YAML, which
 // is immune to the AC MCU's rising-edge release jitter); decoded small/big
