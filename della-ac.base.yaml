@@ -141,7 +141,7 @@ remote_receiver:
           id(last_rx_ms) = now;
 
           // pulses -> bits (4800 baud, bit = 206us; highs recentred +77us
-          // for the MCU's 0..155us release lag). 34-byte frame ~ 389 bits.
+          // for the MCU's 0..155us release lag). 34/35-byte status frame ~ 389-400 bits.
           std::vector<bool> bits;
           bits.reserve(520);
           for (auto v : x) {
@@ -193,8 +193,13 @@ remote_receiver:
             return;
           }
 
-          // ---------------- BIG STATUS (0x20 unsolicited / 0x21 polled) ----------------
-          if (data.size() == 34 && data[2] == 0x07 && (data[9] == 0x20 || data[9] == 0x21)) {
+          // ------------- BIG STATUS (0x20 unsolicited / 0x21 polled / 0x2C alt) -------------
+          // Length self-describes via the body byte: 34B (Della 048-MS) and 35B (Della
+          // Motto JA 12K, one extra trailing pad before the CRC) share this exact layout
+          // and field offsets, so one decode path serves both. 0x2C is an alternate status
+          // frame (same layout) the AC interleaves with the polled 0x21.
+          if ((data.size() == 34 || data.size() == 35) && data[2] == 0x07 &&
+              (data[9] == 0x20 || data[9] == 0x21 || data[9] == 0x2C)) {
             id(status_count) += 1;
             if (id(verbose_logs).state) id(last_status_frame).publish_state(hex);
             id(ac_fan_code).publish_state(data[13]);
