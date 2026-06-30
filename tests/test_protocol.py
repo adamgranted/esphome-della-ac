@@ -23,20 +23,30 @@ FRAMES = {
     # layout, but 35 bytes: one extra trailing pad byte before the 2-byte CRC.
     "big_status_motto": "BB 00 07 00 00 00 19 00 01 21 E0 20 00 00 00 36 37 37 37 "
                         "64 38 39 38 39 00 00 51 2D 00 00 00 03 00 13 49",
+    # Motto JA, captured while actively cooling (setpoint 18C): inverter power and
+    # fan now non-zero, confirming those fields decode under the shared map.
+    "big_status_motto_active": "BB 00 07 00 00 00 19 00 01 21 E0 21 00 06 6C 36 32 32 32 "
+                               "64 35 39 38 39 33 0F 81 4D 0E 00 00 00 00 43 1A",
+    # Motto JA alternate status frame (type 0x2C): same layout/offsets as 0x21,
+    # interleaved with the polled frame. The firmware accepts it alongside 0x20/0x21.
+    "big_status_motto_alt2c":  "BB 00 07 00 00 00 19 00 01 2C E0 21 00 06 6B 36 33 33 33 "
+                               "64 35 39 38 39 33 0F 81 4D 0E 00 00 00 00 42 0E",
 }
 
 # Big-status field map (mirrors the YAML lambda). Both the 34-byte 048-MS frame
 # and the 35-byte Motto frame use these exact offsets — that equivalence is the
 # whole reason a single firmware serves both. Keyed by FRAMES name.
 BIG_STATUS_EXPECTED = {
-    "big_status":       dict(indoor=21.3, coil=14, outdoor=26, compressor=32, inverter=20, fan=2),
-    "big_status_motto": dict(indoor=22.3, coil=23, outdoor=24, compressor=24, inverter=0, fan=0),
+    "big_status":              dict(indoor=21.3, coil=14, outdoor=26, compressor=32, inverter=20, fan=2),
+    "big_status_motto":        dict(indoor=22.3, coil=23, outdoor=24, compressor=24, inverter=0,  fan=0),
+    "big_status_motto_active": dict(indoor=22.0, coil=18, outdoor=21, compressor=24, inverter=51, fan=6),
+    "big_status_motto_alt2c":  dict(indoor=22.0, coil=19, outdoor=21, compressor=24, inverter=51, fan=6),
 }
 
 
 def decode_big_status(data: bytes) -> dict:
     """Decode an AUX big-status frame exactly as della-ac.base.yaml does."""
-    assert data[2] == 0x07 and data[9] in (0x20, 0x21), "not a big-status frame"
+    assert data[2] == 0x07 and data[9] in (0x20, 0x21, 0x2C), "not a big-status frame"
     assert data[19] == 0x64 and data[23] == 0x39, "internal markers misaligned"
     return dict(
         indoor=round(data[15] - 0x20 + (data[31] & 0x0F) / 10.0, 1),

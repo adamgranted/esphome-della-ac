@@ -193,11 +193,13 @@ remote_receiver:
             return;
           }
 
-          // ---------------- BIG STATUS (0x20 unsolicited / 0x21 polled) ----------------
+          // ------------- BIG STATUS (0x20 unsolicited / 0x21 polled / 0x2C alt) -------------
           // Length self-describes via the body byte: 34B (Della 048-MS) and 35B (Della
           // Motto JA 12K, one extra trailing pad before the CRC) share this exact layout
-          // and field offsets, so one decode path serves both.
-          if ((data.size() == 34 || data.size() == 35) && data[2] == 0x07 && (data[9] == 0x20 || data[9] == 0x21)) {
+          // and field offsets, so one decode path serves both. 0x2C is an alternate status
+          // frame (same layout) the AC interleaves with the polled 0x21.
+          if ((data.size() == 34 || data.size() == 35) && data[2] == 0x07 &&
+              (data[9] == 0x20 || data[9] == 0x21 || data[9] == 0x2C)) {
             id(status_count) += 1;
             if (id(verbose_logs).state) id(last_status_frame).publish_state(hex);
             id(ac_fan_code).publish_state(data[13]);

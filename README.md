@@ -45,7 +45,7 @@ images to choose between).
 | Model | Control | Telemetry | Notes |
 |-------|:------:|:--------:|-------|
 | **Della 048-MS** | ✅ | ✅ | Reference unit — fully verified |
-| **Della Motto JA 12K** (`12K1VRH-20S-JA`) | ✅ | 🧪 beta | Same protocol; setpoint / mode / fan / power confirmed. Telemetry decoded from an idle capture — pending one active-cooling log to confirm the compressor/inverter fields ([#11](https://github.com/adamgranted/esphome-della-ac/issues/11)) |
+| **Della Motto JA 12K** (`12K1VRH-20S-JA`) | ✅ | ✅ | Same AUX protocol as the 048-MS (35-byte status frame). Confirmed on idle + active-cooling captures ([#11](https://github.com/adamgranted/esphome-della-ac/issues/11)) |
 
 Other AUX-built Della / AUX-OEM units very likely work. If yours isn't listed, open an
 issue with a `verbose`-on log capture and it can usually be added in a line or two.
