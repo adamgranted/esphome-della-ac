@@ -174,12 +174,14 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
   }
   bool antifungus_state() const { return this->feature_state_(12, 0x08); }
 
-  // Big-frame [13] = reported live blower speed. Mapped on the unit (2/4/6).
+  // Big-frame [13] = reported live blower speed (2/4/6 = low/med/high).
+  // 048-MS logs in issue #25 report 7 during turbo; the speed can lag the preset.
   const char *fan_actual_str() const {
     switch (this->fan_actual_) {
       case 2: return "low";
       case 4: return "med";
       case 6: return "high";
+      case 7: return "turbo";
       case 0: return "idle";
       default: return "?";
     }
@@ -459,7 +461,7 @@ class DellaAC : public climate::Climate, public Component, public uart::UARTDevi
   bool first_publish_{true};
   uint32_t last_small_ms_{0};
   uint8_t inverter_power_{0};
-  uint8_t fan_actual_{0};   // big-frame [13]: reported live blower speed (2/4/6 = low/med/high)
+  uint8_t fan_actual_{0};   // big-frame [13]: live blower speed (0 idle, 2/4/6 low/med/high, 7 turbo)
 };
 
 }  // namespace della_ac
