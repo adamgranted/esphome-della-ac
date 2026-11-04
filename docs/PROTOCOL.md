@@ -76,7 +76,7 @@ Packet byte index = body index + 8.
 
 | Byte | Field | Encoding |
 |------|-------|----------|
-| 13 | reported fan speed | live blower speed: `2` low, `4` med, `6` high (in auto, reports the speed the unit picked) |
+| 13 | reported fan speed | live blower speed: `0` idle, `2` low, `4` med, `6` high, `7` turbo (in auto, reports the speed the unit picked) |
 | 15 | indoor temperature | `value − 0x20` °C, tenths in byte 31 low nibble |
 | 16–18 | evaporator coil temperature | `value − 0x20` °C |
 | 20 | outdoor temperature | `value − 0x20` °C |
@@ -84,6 +84,10 @@ Packet byte index = body index + 8.
 | 24 | inverter power | percent |
 
 (CONF byte 10: `0xE4` unsolicited / `0xE0` poll reply.)
+
+The 048-MS logs in [issue #25](https://github.com/adamgranted/esphome-della-ac/issues/25)
+show fan speed `2` → `7` after Boost is enabled and `7` → `2` after it is disabled.
+The reported blower speed can lag the preset, so the readable speed follows byte 13.
 
 ## Control (SET_PARAMS)
 
